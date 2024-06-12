@@ -426,7 +426,7 @@ mod tests {
 
         let srv = test::init_service(
             App::new().service(
-                Files::new("/", ".")
+                Files::new("/", vec!["."])
                     .mime_override(all_attachment)
                     .index_file("Cargo.toml"),
             ),
@@ -450,7 +450,7 @@ mod tests {
     #[actix_rt::test]
     async fn test_named_file_ranges_status_code() {
         let srv = test::init_service(
-            App::new().service(Files::new("/test", ".").index_file("Cargo.toml")),
+            App::new().service(Files::new("/test", vec!["."]).index_file("Cargo.toml")),
         )
         .await;
 
@@ -474,7 +474,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_named_file_content_range_headers() {
-        let srv = actix_test::start(|| App::new().service(Files::new("/", ".")));
+        let srv = actix_test::start(|| App::new().service(Files::new("/", vec!["."])));
 
         // Valid range header
         let response = srv
@@ -499,7 +499,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_named_file_content_length_headers() {
-        let srv = actix_test::start(|| App::new().service(Files::new("/", ".")));
+        let srv = actix_test::start(|| App::new().service(Files::new("/", vec!["."])));
 
         // Valid range header
         let response = srv
@@ -538,7 +538,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_head_content_length_headers() {
-        let srv = actix_test::start(|| App::new().service(Files::new("/", ".")));
+        let srv = actix_test::start(|| App::new().service(Files::new("/", vec!["."])));
 
         let response = srv.head("/tests/test.binary").send().await.unwrap();
 
@@ -555,7 +555,7 @@ mod tests {
     #[actix_rt::test]
     async fn test_static_files_with_spaces() {
         let srv =
-            test::init_service(App::new().service(Files::new("/", ".").index_file("Cargo.toml")))
+            test::init_service(App::new().service(Files::new("/", vec!["."]).index_file("Cargo.toml")))
                 .await;
         let request = TestRequest::get()
             .uri("/tests/test%20space.binary")
@@ -594,7 +594,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_files_not_allowed() {
-        let srv = test::init_service(App::new().service(Files::new("/", "."))).await;
+        let srv = test::init_service(App::new().service(Files::new("/", vec!["."]))).await;
 
         let req = TestRequest::default()
             .uri("/Cargo.toml")
@@ -604,7 +604,7 @@ mod tests {
         let resp = test::call_service(&srv, req).await;
         assert_eq!(resp.status(), StatusCode::METHOD_NOT_ALLOWED);
 
-        let srv = test::init_service(App::new().service(Files::new("/", "."))).await;
+        let srv = test::init_service(App::new().service(Files::new("/", vec!["."]))).await;
         let req = TestRequest::default()
             .method(Method::PUT)
             .uri("/Cargo.toml")
@@ -616,7 +616,7 @@ mod tests {
     #[actix_rt::test]
     async fn test_files_guards() {
         let srv = test::init_service(
-            App::new().service(Files::new("/", ".").method_guard(guard::Post())),
+            App::new().service(Files::new("/", vec!["."]).method_guard(guard::Post())),
         )
         .await;
 
@@ -690,20 +690,20 @@ mod tests {
     #[actix_rt::test]
     async fn test_static_files() {
         let srv =
-            test::init_service(App::new().service(Files::new("/", ".").show_files_listing())).await;
+            test::init_service(App::new().service(Files::new("/", vec!["."]).show_files_listing())).await;
         let req = TestRequest::with_uri("/missing").to_request();
 
         let resp = test::call_service(&srv, req).await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 
-        let srv = test::init_service(App::new().service(Files::new("/", "."))).await;
+        let srv = test::init_service(App::new().service(Files::new("/", vec!["."]))).await;
 
         let req = TestRequest::default().to_request();
         let resp = test::call_service(&srv, req).await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 
         let srv =
-            test::init_service(App::new().service(Files::new("/", ".").show_files_listing())).await;
+            test::init_service(App::new().service(Files::new("/", vec!["."]).show_files_listing())).await;
         let req = TestRequest::with_uri("/tests").to_request();
         let resp = test::call_service(&srv, req).await;
         assert_eq!(
@@ -719,7 +719,7 @@ mod tests {
     async fn test_redirect_to_slash_directory() {
         // should not redirect if no index and files listing is disabled
         let srv = test::init_service(
-            App::new().service(Files::new("/", ".").redirect_to_slash_directory()),
+            App::new().service(Files::new("/", vec!["."]).redirect_to_slash_directory()),
         )
         .await;
         let req = TestRequest::with_uri("/tests").to_request();
@@ -729,7 +729,7 @@ mod tests {
         // should redirect if index present
         let srv = test::init_service(
             App::new().service(
-                Files::new("/", ".")
+                Files::new("/", vec!["."])
                     .index_file("test.png")
                     .redirect_to_slash_directory(),
             ),
@@ -742,7 +742,7 @@ mod tests {
         // should redirect if files listing is enabled
         let srv = test::init_service(
             App::new().service(
-                Files::new("/", ".")
+                Files::new("/", vec!["."])
                     .show_files_listing()
                     .redirect_to_slash_directory(),
             ),
@@ -760,7 +760,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_static_files_bad_directory() {
-        let service = Files::new("/", "./missing").new_service(()).await.unwrap();
+        let service = Files::new("/", vec!["./missing"]).new_service(()).await.unwrap();
 
         let req = TestRequest::with_uri("/").to_srv_request();
         let resp = test::call_service(&service, req).await;
@@ -770,7 +770,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_default_handler_file_missing() {
-        let st = Files::new("/", ".")
+        let st = Files::new("/", vec!["."])
             .default_handler(|req: ServiceRequest| async {
                 Ok(req.into_response(HttpResponse::Ok().body("default content")))
             })
@@ -787,7 +787,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_serve_index_nested() {
-        let service = Files::new(".", ".")
+        let service = Files::new(".", vec!["."])
             .index_file("lib.rs")
             .new_service(())
             .await
@@ -810,7 +810,7 @@ mod tests {
     #[actix_rt::test]
     async fn integration_serve_index() {
         let srv = test::init_service(
-            App::new().service(Files::new("test", ".").index_file("Cargo.toml")),
+            App::new().service(Files::new("test", vec!["."]).index_file("Cargo.toml")),
         )
         .await;
 
@@ -844,7 +844,7 @@ mod tests {
     #[actix_rt::test]
     async fn integration_percent_encoded() {
         let srv = test::init_service(
-            App::new().service(Files::new("test", ".").index_file("Cargo.toml")),
+            App::new().service(Files::new("test", vec!["."]).index_file("Cargo.toml")),
         )
         .await;
 
@@ -878,7 +878,7 @@ mod tests {
             });
         std::fs::File::create(temp_dir.path().join(filename)).unwrap();
 
-        let srv = test::init_service(App::new().service(Files::new("/", temp_dir.path()))).await;
+        let srv = test::init_service(App::new().service(Files::new("/", vec![temp_dir.path()]))).await;
 
         let req = TestRequest::get()
             .uri(&format!("/{}", filename_encoded))
@@ -943,7 +943,7 @@ mod tests {
     #[actix_rt::test]
     async fn test_default_handler_named_file() {
         let factory = NamedFile::open_async("Cargo.toml").await.unwrap();
-        let st = Files::new("/", ".")
+        let st = Files::new("/", vec!["."])
             .default_handler(factory)
             .new_service(())
             .await
@@ -959,7 +959,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_symlinks() {
-        let srv = test::init_service(App::new().service(Files::new("test", "."))).await;
+        let srv = test::init_service(App::new().service(Files::new("test", vec!["."]))).await;
 
         let req = TestRequest::get()
             .uri("/test/tests/symlink-test.png")
@@ -974,7 +974,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_index_with_show_files_listing() {
-        let service = Files::new(".", ".")
+        let service = Files::new(".", vec!["."])
             .index_file("lib.rs")
             .show_files_listing()
             .new_service(())
@@ -1004,7 +1004,7 @@ mod tests {
     #[actix_rt::test]
     async fn test_path_filter() {
         // prevent searching subdirectories
-        let st = Files::new("/", ".")
+        let st = Files::new("/", vec!["."])
             .path_filter(|path, _| path.components().count() == 1)
             .new_service(())
             .await
@@ -1021,7 +1021,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_default_handler_filter() {
-        let st = Files::new("/", ".")
+        let st = Files::new("/", vec!["."])
             .default_handler(|req: ServiceRequest| async {
                 Ok(req.into_response(HttpResponse::Ok().body("default content")))
             })

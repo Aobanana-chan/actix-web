@@ -37,7 +37,7 @@ use crate::{
 /// ```
 pub struct Files {
     mount_path: String,
-    directory: PathBuf,
+    directories: Vec<PathBuf>,
     index: Option<String>,
     show_index: bool,
     redirect_to_slash: bool,
@@ -60,7 +60,7 @@ impl fmt::Debug for Files {
 impl Clone for Files {
     fn clone(&self) -> Self {
         Self {
-            directory: self.directory.clone(),
+            directories: self.directories.clone(),
             index: self.index.clone(),
             show_index: self.show_index,
             redirect_to_slash: self.redirect_to_slash,
@@ -95,19 +95,24 @@ impl Files {
     /// `Files` utilizes the existing Tokio thread-pool for blocking filesystem operations.
     /// The number of running threads is adjusted over time as needed, up to a maximum of 512 times
     /// the number of server [workers](actix_web::HttpServer::workers), by default.
-    pub fn new<T: Into<PathBuf>>(mount_path: &str, serve_from: T) -> Files {
-        let orig_dir = serve_from.into();
-        let dir = match orig_dir.canonicalize() {
-            Ok(canon_dir) => canon_dir,
-            Err(_) => {
-                log::error!("Specified path is not a directory: {:?}", orig_dir);
-                PathBuf::new()
-            }
-        };
+    pub fn new<T: Into<PathBuf>>(mount_path: &str, serve_from: Vec<T>) -> Files {
+        let mut directories = vec![];
+        for serve_from_dir in serve_from {
+            let orig_dir: PathBuf = serve_from_dir.into();
+            let dir = match orig_dir.canonicalize() {
+                Ok(canon_dir) => canon_dir,
+                Err(_) => {
+                    log::error!("Specified path is not a directory: {:?}", orig_dir);
+                    PathBuf::new()
+                }
+            };
+            directories.push(dir);
+        }
+
 
         Files {
             mount_path: mount_path.trim_end_matches('/').to_owned(),
-            directory: dir,
+            directories,
             index: None,
             show_index: false,
             redirect_to_slash: false,
@@ -356,7 +361,7 @@ impl ServiceFactory<ServiceRequest> for Files {
 
     fn new_service(&self, _: ()) -> Self::Future {
         let mut inner = FilesServiceInner {
-            directory: self.directory.clone(),
+            directory: self.directories.clone(),
             index: self.index.clone(),
             show_index: self.show_index,
             redirect_to_slash: self.redirect_to_slash,
@@ -400,7 +405,7 @@ mod tests {
     async fn custom_files_listing_renderer() {
         let srv = test::init_service(
             App::new().service(
-                Files::new("/", "./tests")
+                Files::new("/", vec!["./tests"])
                     .show_files_listing()
                     .files_listing_renderer(|dir, req| {
                         Ok(ServiceResponse::new(

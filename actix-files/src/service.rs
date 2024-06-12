@@ -28,7 +28,7 @@ impl Deref for FilesService {
 }
 
 pub struct FilesServiceInner {
-    pub(crate) directory: PathBuf,
+    pub(crate) directory: Vec<PathBuf>,
     pub(crate) index: Option<String>,
     pub(crate) show_index: bool,
     pub(crate) redirect_to_slash: bool,
@@ -75,7 +75,10 @@ impl FilesService {
     }
 
     fn show_index(&self, req: ServiceRequest, path: PathBuf) -> ServiceResponse {
-        let dir = Directory::new(self.directory.clone(), path);
+        if self.directory.len() != 1 {
+            panic!("Directory has more than one entry, can't serve index.");
+        }
+        let dir = Directory::new(self.directory[0].clone(), path);
 
         let (req, _) = req.into_parts();
 
@@ -133,56 +136,64 @@ impl Service<ServiceRequest> for FilesService {
             }
 
             // full file path
-            let path = this.directory.join(&path_on_disk);
-            if let Err(err) = path.canonicalize() {
-                return this.handle_err(err, req).await;
-            }
-
-            if path.is_dir() {
-                if this.redirect_to_slash
-                    && !req.path().ends_with('/')
-                    && (this.index.is_some() || this.show_index)
-                {
-                    let redirect_to = format!("{}/", req.path());
-
-                    return Ok(req.into_response(
-                        HttpResponse::Found()
-                            .insert_header((header::LOCATION, redirect_to))
-                            .finish(),
-                    ));
+            for dir in &this.directory {
+                let path = dir.join(&path_on_disk);
+                if path.canonicalize().is_err() {
+                    continue;
                 }
+                // let path = this.directory.join(&path_on_disk);
+                // if let Err(err) = path.canonicalize() {
+                //     return this.handle_err(err, req).await;
+                // }
 
-                match this.index {
-                    Some(ref index) => {
-                        let named_path = path.join(index);
-                        match NamedFile::open_async(named_path).await {
-                            Ok(named_file) => Ok(this.serve_named_file(req, named_file)),
-                            Err(_) if this.show_index => Ok(this.show_index(req, path)),
-                            Err(err) => this.handle_err(err, req).await,
-                        }
+                if path.is_dir() {
+                    if this.redirect_to_slash
+                        && !req.path().ends_with('/')
+                        && (this.index.is_some() || this.show_index)
+                    {
+                        let redirect_to = format!("{}/", req.path());
+
+                        return Ok(req.into_response(
+                            HttpResponse::Found()
+                                .insert_header((header::LOCATION, redirect_to))
+                                .finish(),
+                        ));
                     }
-                    None if this.show_index => Ok(this.show_index(req, path)),
-                    None => Ok(ServiceResponse::from_err(
-                        FilesError::IsDirectory,
-                        req.into_parts().0,
-                    )),
-                }
-            } else {
-                match NamedFile::open_async(&path).await {
-                    Ok(mut named_file) => {
-                        if let Some(ref mime_override) = this.mime_override {
-                            let new_disposition = mime_override(&named_file.content_type.type_());
-                            named_file.content_disposition.disposition = new_disposition;
-                        }
-                        named_file.flags = this.file_flags;
 
-                        let (req, _) = req.into_parts();
-                        let res = named_file.into_response(&req);
-                        Ok(ServiceResponse::new(req, res))
+                    return match this.index {
+                        Some(ref index) => {
+                            let named_path = path.join(index);
+                            match NamedFile::open_async(named_path).await {
+                                Ok(named_file) => Ok(this.serve_named_file(req, named_file)),
+                                Err(_) if this.show_index => Ok(this.show_index(req, path)),
+                                Err(err) => this.handle_err(err, req).await,
+                            }
+                        }
+                        None if this.show_index => Ok(this.show_index(req, path)),
+                        None => Ok(ServiceResponse::from_err(
+                            FilesError::IsDirectory,
+                            req.into_parts().0,
+                        )),
+                    };
+                } else {
+                    match NamedFile::open_async(&path).await {
+                        Ok(mut named_file) => {
+                            if let Some(ref mime_override) = this.mime_override {
+                                let new_disposition =
+                                    mime_override(&named_file.content_type.type_());
+                                named_file.content_disposition.disposition = new_disposition;
+                            }
+                            named_file.flags = this.file_flags;
+
+                            let (req, _) = req.into_parts();
+                            let res = named_file.into_response(&req);
+                            return Ok(ServiceResponse::new(req, res));
+                        }
+                        Err(err) => return this.handle_err(err, req).await,
                     }
-                    Err(err) => this.handle_err(err, req).await,
                 }
             }
+            this.handle_err(io::Error::new(io::ErrorKind::NotFound, "No such file"), req).await
         })
     }
 }

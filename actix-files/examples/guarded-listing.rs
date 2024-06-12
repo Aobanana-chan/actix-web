@@ -2,6 +2,7 @@ use actix_files::Files;
 use actix_web::{get, guard, middleware, App, HttpServer, Responder};
 
 const EXAMPLES_DIR: &str = concat![env!("CARGO_MANIFEST_DIR"), "/examples"];
+const EXAMPLES_DIR2: &str = concat![env!("CARGO_MANIFEST_DIR"), "/src"];
 
 #[get("/")]
 async fn index() -> impl Responder {
@@ -17,12 +18,12 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .service(index)
-            .service(
-                Files::new("/assets", EXAMPLES_DIR)
-                    .show_files_listing()
-                    .guard(guard::Header("show-listing", "?1")),
-            )
-            .service(Files::new("/assets", EXAMPLES_DIR))
+            // .service(
+            //     Files::new("/assets", EXAMPLES_DIR)
+            //         .show_files_listing()
+            //         .guard(guard::Header("show-listing", "?1")),
+            // )
+            .service(Files::new("/assets", vec![EXAMPLES_DIR, EXAMPLES_DIR2]))
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
     })
