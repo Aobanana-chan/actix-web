@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Minimum supported Rust version (MSRV) is now 1.75.
+- On Windows platforms, produce an error when invoking `HttpServer::bind` on a socket that's already in use. See [issue 2958](https://github.com/actix/actix-web/issues/2958).
+
+## 4.9.0
+
+### Added
+
+- Add `middleware::from_fn()` helper.
+- Add `web::ThinData` extractor.
+
+## 4.8.0
+
 ### Added
 
 - Add `web::Html` responder.
@@ -9,8 +21,9 @@
 
 ### Fixed
 
-- `ConnectionInfo::realip_remote_addr()` now handles IPv6 addresses from `Forwarded` header correctly. Previously, it sometimes returned the forwarded port as well.
+- Always remove port from return value of `ConnectionInfo::realip_remote_addr()` when handling IPv6 addresses. from the `Forwarded` header.
 - The `UrlencodedError::ContentType` variant (relevant to the `Form` extractor) now uses the 415 (Media Type Unsupported) status code in it's `ResponseError` implementation.
+- Apply `HttpServer::max_connection_rate()` setting when using rustls v0.22 or v0.23.
 
 ## 4.7.0
 

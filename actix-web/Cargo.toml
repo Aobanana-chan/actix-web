@@ -1,6 +1,6 @@
 [package]
 name = "actix-web"
-version = "4.7.0"
+version = "4.9.0"
 description = "Actix Web is a powerful, pragmatic, and extremely fast web framework for Rust"
 authors = [
     "Nikolay Kim <fafhrd91@gmail.com>",
@@ -93,18 +93,18 @@ secure-cookies = ["cookies", "cookie/secure"]
 http2 = ["actix-http/http2"]
 
 # TLS via OpenSSL
-openssl = ["http2", "actix-http/openssl", "actix-tls/accept", "actix-tls/openssl"]
+openssl = ["__tls", "http2", "actix-http/openssl", "actix-tls/accept", "actix-tls/openssl"]
 
 # TLS via Rustls v0.20
 rustls = ["rustls-0_20"]
 # TLS via Rustls v0.20
-rustls-0_20 = ["http2", "actix-http/rustls-0_20", "actix-tls/accept", "actix-tls/rustls-0_20"]
+rustls-0_20 = ["__tls", "http2", "actix-http/rustls-0_20", "actix-tls/accept", "actix-tls/rustls-0_20"]
 # TLS via Rustls v0.21
-rustls-0_21 = ["http2", "actix-http/rustls-0_21", "actix-tls/accept", "actix-tls/rustls-0_21"]
+rustls-0_21 = ["__tls", "http2", "actix-http/rustls-0_21", "actix-tls/accept", "actix-tls/rustls-0_21"]
 # TLS via Rustls v0.22
-rustls-0_22 = ["http2", "actix-http/rustls-0_22", "actix-tls/accept", "actix-tls/rustls-0_22"]
+rustls-0_22 = ["__tls", "http2", "actix-http/rustls-0_22", "actix-tls/accept", "actix-tls/rustls-0_22"]
 # TLS via Rustls v0.23
-rustls-0_23 = ["http2", "actix-http/rustls-0_23", "actix-tls/accept", "actix-tls/rustls-0_23"]
+rustls-0_23 = ["__tls", "http2", "actix-http/rustls-0_23", "actix-tls/accept", "actix-tls/rustls-0_23"]
 
 # Full unicode support
 unicode = ["dep:regex", "actix-router/unicode"]
@@ -112,6 +112,10 @@ unicode = ["dep:regex", "actix-router/unicode"]
 # Internal (PRIVATE!) features used to aid testing and checking feature status.
 # Don't rely on these whatsoever. They may disappear at anytime.
 __compress = []
+
+# Internal (PRIVATE!) features used to aid checking feature status.
+# Don't rely on these whatsoever. They may disappear at anytime.
+__tls = []
 
 # io-uring feature only available for Linux OSes.
 experimental-io-uring = ["actix-server/io-uring"]
@@ -142,11 +146,12 @@ bytes = "1"
 bytestring = "1"
 cfg-if = "1"
 cookie = { version = "0.16", features = ["percent-encode"], optional = true }
-derive_more = "0.99.8"
+derive_more = { version = "1", features = ["display", "error", "from"] }
 encoding_rs = "0.8"
 futures-core = { version = "0.3.17", default-features = false }
 futures-util = { version = "0.3.17", default-features = false }
 itoa = "1"
+impl-more = "0.1.4"
 language-tags = "0.3"
 log = "0.4"
 mime = "0.3"
@@ -177,12 +182,15 @@ futures-util = { version = "0.3.17", default-features = false, features = ["std"
 rand = "0.8"
 rcgen = "0.13"
 rustls-pemfile = "2"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
 static_assertions = "1"
 tls-openssl = { package = "openssl", version = "0.10.55" }
 tls-rustls = { package = "rustls", version = "0.23" }
 tokio = { version = "1.24.2", features = ["rt-multi-thread", "macros"] }
 zstd = "0.13"
+
+[lints]
+workspace = true
 
 [[test]]
 name = "test_server"

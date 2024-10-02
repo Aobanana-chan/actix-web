@@ -1,6 +1,6 @@
 [package]
 name = "awc"
-version = "3.5.0"
+version = "3.5.1"
 authors = ["Nikolay Kim <fafhrd91@gmail.com>"]
 description = "Async HTTP and WebSocket client library"
 keywords = ["actix", "http", "framework", "async", "web"]
@@ -106,7 +106,7 @@ actix-utils = "3"
 base64 = "0.22"
 bytes = "1"
 cfg-if = "1"
-derive_more = "0.99.5"
+derive_more = { version = "1", features = ["display", "error", "from"] }
 futures-core = { version = "0.3.17", default-features = false, features = ["alloc"] }
 futures-util = { version = "0.3.17", default-features = false, features = ["alloc", "sink"] }
 h2 = "0.3.26"
@@ -152,6 +152,9 @@ rustls-pemfile = "2"
 tokio = { version = "1.24.2", features = ["rt-multi-thread", "macros"] }
 zstd = "0.13"
 tls-rustls-0_23 = { package = "rustls", version = "0.23" } # add rustls 0.23 with default features to make aws_lc_rs work in tests
+
+[lints]
+workspace = true
 
 [[example]]
 name = "client"

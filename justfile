@@ -3,12 +3,14 @@ _list:
 
 # Format workspace.
 fmt:
+    just --unstable --fmt
     cargo +nightly fmt
     fd --hidden --type=file --extension=md --extension=yml --exec-batch npx -y prettier --write
 
 # Downgrade dev-dependencies necessary to run MSRV checks/tests.
 [private]
 downgrade-for-msrv:
+    cargo update -p=parse-size --precise=1.0.0
     cargo update -p=clap --precise=4.4.18
 
 msrv := ```
@@ -17,20 +19,22 @@ msrv := ```
     | sed -E 's/^1\.([0-9]{2})$/1\.\1\.0/'
 ```
 msrv_rustup := "+" + msrv
-
 non_linux_all_features_list := ```
     cargo metadata --format-version=1 \
     | jq '.packages[] | select(.source == null) | .features | keys' \
     | jq -r --slurp \
-        --arg exclusions "tokio-uring,io-uring,experimental-io-uring" \
+        --arg exclusions "__tls,__compress,tokio-uring,io-uring,experimental-io-uring" \
         'add | unique | . - ($exclusions | split(",")) | join(",")'
 ```
+all_crate_features := if os() == "linux" { "--all-features" } else { "--features='" + non_linux_all_features_list + "'" }
 
-all_crate_features := if os() == "linux" {
-    "--all-features"
-} else {
-    "--features='" + non_linux_all_features_list + "'"
-}
+[private]
+check-min:
+    cargo hack --workspace check --no-default-features
+
+[private]
+check-default:
+    cargo hack --workspace check
 
 # Run Clippy over workspace.
 clippy toolchain="":
@@ -76,7 +80,8 @@ doc-set-workspace-crates:
     #!/usr/bin/env bash
     (
         echo "window.ALL_CRATES ="
-        cargo metadata --format-version=1 | jq '[.packages[] | select(.source == null) | .name]'
+        cargo metadata --format-version=1 \
+        | jq '[.packages[] | select(.source == null) | .targets | map(select(.doc) | .name)] | flatten'
         echo ";"
     ) > "$(cargo metadata --format-version=1 | jq -r '.target_directory')/doc/crates.js"
 
@@ -93,13 +98,22 @@ update-readmes: && fmt
     cd ./actix-multipart && cargo rdme --force
     cd ./actix-test && cargo rdme --force
 
+feature_combo_skip_list := if os() == "linux" { "__tls,__compress" } else { "__tls,__compress,experimental-io-uring" }
+
+# Checks compatibility of feature combinations.
+check-feature-combinations:
+    cargo hack --workspace \
+        --feature-powerset --depth=4 \
+        --skip={{ feature_combo_skip_list }} \
+        check
+
 # Check for unintentional external type exposure on all crates in workspace.
 check-external-types-all toolchain="+nightly":
     #!/usr/bin/env bash
     set -euo pipefail
     exit=0
     for f in $(find . -mindepth 2 -maxdepth 2 -name Cargo.toml | grep -vE "\-codegen/|\-derive/|\-macros/"); do
-        if ! just check-external-types-manifest "$f" {{toolchain}}; then exit=1; fi
+        if ! just check-external-types-manifest "$f" {{ toolchain }}; then exit=1; fi
         echo
         echo
     done
@@ -112,9 +126,9 @@ check-external-types-all-table toolchain="+nightly":
     for f in $(find . -mindepth 2 -maxdepth 2 -name Cargo.toml | grep -vE "\-codegen/|\-derive/|\-macros/"); do
         echo
         echo "Checking for $f"
-        just check-external-types-manifest "$f" {{toolchain}} --output-format=markdown-table
+        just check-external-types-manifest "$f" {{ toolchain }} --output-format=markdown-table
     done
 
 # Check for unintentional external type exposure on a crate.
 check-external-types-manifest manifest_path toolchain="+nightly" *extra_args="":
-    cargo {{toolchain}} check-external-types --manifest-path "{{manifest_path}}" {{extra_args}}
+    cargo {{ toolchain }} check-external-types --manifest-path "{{ manifest_path }}" {{ extra_args }}
